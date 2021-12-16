@@ -22,7 +22,7 @@ batch_size = 32
 learning_rate = 1e-3
 use_gpu = True
 checkpointing = True
-PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\picovina.pt"
+PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\check.pt"
 
 import numpy as np
 from skimage import color
