@@ -17,12 +17,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-num_epochs = 20
+num_epochs = 30
 batch_size = 32
 learning_rate = 1e-3
 use_gpu = True
-checkpointing = False
-PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model.pt"
+checkpointing = True
+resume = True
+PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_11.pt"
 
 import numpy as np
 from skimage import color
@@ -125,6 +126,8 @@ print('Number of parameters: %d' % (num_params))
 
 optimizer = torch.optim.Adam(params=cnet.parameters(), lr=learning_rate)
 print(cnet)
+
+
 # set to training mode
 cnet.train()
 
@@ -133,6 +136,47 @@ if checkpointing:
     checkpoint = torch.load(PATH)
     cnet.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    epoch = checkpoint['epoch']
+    loss = checkpoint['loss']
+    if resume:
+        print('Continue training from epoch %d...' % (epoch))
+        for epoch in range(num_epochs):
+            train_loss_avg.append(0)
+            num_batches = 0
+            t0 = time.time()
+            print('Epoch:', epoch+1 ,'/',num_epochs,':')
+            for lab_batch, _ in train_dataloader:
+        
+                lab_batch = lab_batch.to(device)
+        
+                # apply the color net to the luminance component of the Lab images
+                # to get the color (ab) components
+                predicted_ab_batch = cnet(lab_batch[:, 0:1, :, :])
+        
+                # loss is the L2 error to the actual color (ab) components
+                loss = F.mse_loss(predicted_ab_batch, lab_batch[:, 1:3, :, :])
+        
+                # backpropagation
+                optimizer.zero_grad()
+                loss.backward()
+        
+                # one step of the optmizer (using the gradients from backpropagation)
+                optimizer.step()
+        
+                train_loss_avg[-1] += loss.item()
+                num_batches += 1
+        
+            train_loss_avg[-1] /= num_batches
+            print('Epoch [%d / %d] average reconstruction error: %f time(m): %f' % (epoch+1, num_epochs, train_loss_avg[-1], (time.time() - t0)/60))
+            LOSS = train_loss_avg[-1]
+            PATH2 = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_%d.pt" % (epoch+1)
+            torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': cnet.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': LOSS,
+                    }, PATH2)
+
 else:
     print('Training ...')
     for epoch in range(num_epochs):
