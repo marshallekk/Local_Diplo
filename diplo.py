@@ -17,8 +17,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-num_epochs = 100
-batch_size = 256
+num_epochs = 20
+batch_size = 32
 learning_rate = 1e-3
 use_gpu = True
 checkpointing = False
@@ -72,9 +72,9 @@ class ImageDataset(Dataset):
 
 dataset = torchvision.datasets.ImageFolder(places_path, transform = img_transform)
 n = len(dataset)  # total number of examples
-n_test = int(0.1 * n)  # take ~10% for test
-test_dataset = torch.utils.data.Subset(orig_set, range(n_test))  # take first 10%
-train_dataset = torch.utils.data.Subset(orig_set, range(n_test, n))  # take the rest   
+n_test = int(0.05 * n)  # take ~10% for test
+test_dataset = torch.utils.data.Subset(dataset, range(n_test))  # take first 10%
+train_dataset = torch.utils.data.Subset(dataset, range(n_test, int(0.3 * n)))  # take the rest   
 
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -164,12 +164,13 @@ else:
         train_loss_avg[-1] /= num_batches
         print('Epoch [%d / %d] average reconstruction error: %f time(m): %f' % (epoch+1, num_epochs, train_loss_avg[-1], (time.time() - t0)/60))
         LOSS = train_loss_avg[-1]
+        PATH2 = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_%d.pt" % (epoch+1)
         torch.save({
                 'epoch': epoch,
                 'model_state_dict': cnet.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': LOSS,
-                }, PATH)
+                }, PATH2)
 
 
 
