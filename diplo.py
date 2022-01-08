@@ -18,11 +18,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 num_epochs = 100
-batch_size = 32
+batch_size = 256
 learning_rate = 1e-3
 use_gpu = True
-checkpointing = True
-PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\picovina.pt"
+checkpointing = False
+PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model.pt"
 
 import numpy as np
 from skimage import color
@@ -43,12 +43,14 @@ def import_image(img):
     return torch.cuda.FloatTensor(np.transpose(color.rgb2lab(np.array(img)), (2, 0, 1)))
     
 img_transform = transforms.Compose([
-    transforms.Resize(256),
+    # transforms.Resize(256),
     transforms.Lambda(import_image)
 ])
 
-train_path ='C:\\Users\\hrebe\\Desktop\\Diplomovka\\data\\train_color'
-test_path ='C:\\Users\\hrebe\\Desktop\\Diplomovka\\data\\test_color'
+# train_path ='C:\\Users\\hrebe\\Desktop\\Diplomovka\\data\\train_color'
+# test_path ='C:\\Users\\hrebe\\Desktop\\Diplomovka\\data\\test_color'
+
+places_path = 'C:\\Users\\hrebe\\Desktop\\Diplomovka\\places'
 
 class ImageDataset(Dataset):
   def __init__(self,img_folder,transform):
@@ -65,8 +67,14 @@ class ImageDataset(Dataset):
 
   def __len__(self):
     return len(self.image)
-train_dataset = torchvision.datasets.ImageFolder(train_path, transform = img_transform)
-test_dataset = torchvision.datasets.ImageFolder(test_path, transform = img_transform)
+# train_dataset = torchvision.datasets.ImageFolder(train_path, transform = img_transform)
+# test_dataset = torchvision.datasets.ImageFolder(test_path, transform = img_transform)
+
+dataset = torchvision.datasets.ImageFolder(places_path, transform = img_transform)
+n = len(dataset)  # total number of examples
+n_test = int(0.1 * n)  # take ~10% for test
+test_dataset = torch.utils.data.Subset(orig_set, range(n_test))  # take first 10%
+train_dataset = torch.utils.data.Subset(orig_set, range(n_test, n))  # take the rest   
 
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -171,7 +179,7 @@ fig = plt.figure(figsize=(15, 5))
 plt.plot(train_loss_avg)
 plt.xlabel('Epochs')
 plt.ylabel('Loss')
-plt.savefig("C:\\Users\\hrebe\\Desktop\\Diplomovka\\plot.png")
+plt.savefig("C:\\Users\\hrebe\\Desktop\\Diplomovka\\plot_places.png")
 plt.show()
 
 cnet.eval()
@@ -228,5 +236,5 @@ with torch.no_grad():
     ax[0].title.set_text('re-colored')
     ax[1].imshow(np.transpose(torchvision.utils.make_grid(torch.stack(rgb_batch), nrow=5).numpy(), (1, 2, 0)))
     ax[1].title.set_text('original')
-    plt.savefig("C:\\Users\\hrebe\\Desktop\\Diplomovka\\pls.png")
+    plt.savefig("C:\\Users\\hrebe\\Desktop\\Diplomovka\\pls_places.png")
     plt.show()
