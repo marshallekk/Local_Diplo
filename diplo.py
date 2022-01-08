@@ -136,15 +136,16 @@ if checkpointing:
     checkpoint = torch.load(PATH)
     cnet.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    epoch = checkpoint['epoch']
+    epoch_check = checkpoint['epoch']
     loss = checkpoint['loss']
     if resume:
-        print('Continue training from epoch %d...' % (epoch))
+        print('Continue training from epoch %d...' % (epoch_check+1))
         for epoch in range(num_epochs):
             train_loss_avg.append(0)
             num_batches = 0
             t0 = time.time()
-            print('Epoch:', epoch+1 ,'/',num_epochs,':')
+            act_epoch = epoch+1+epoch_check+1
+            print('Actual checkpoint epoch:', act_epoch, 'Epoch:', epoch+1 ,'/',num_epochs,':')
             for lab_batch, _ in train_dataloader:
         
                 lab_batch = lab_batch.to(device)
@@ -167,9 +168,9 @@ if checkpointing:
                 num_batches += 1
         
             train_loss_avg[-1] /= num_batches
-            print('Epoch [%d / %d] average reconstruction error: %f time(m): %f' % (epoch+1, num_epochs, train_loss_avg[-1], (time.time() - t0)/60))
+            print('Epoch (%d) [%d / %d] average reconstruction error: %f time(m): %f' % (act_epoch, epoch+1, num_epochs, train_loss_avg[-1], (time.time() - t0)/60))
             LOSS = train_loss_avg[-1]
-            PATH2 = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_%d.pt" % (epoch+1)
+            PATH2 = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_%d.pt" % (act_epoch)
             torch.save({
                     'epoch': epoch,
                     'model_state_dict': cnet.state_dict(),
