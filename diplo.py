@@ -22,8 +22,8 @@ batch_size = 32
 learning_rate = 1e-3
 use_gpu = True
 checkpointing = True
-resume = True
-PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_11.pt"
+resume = False
+PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_140.pt" #171 last
 
 import numpy as np
 from skimage import color
@@ -44,7 +44,7 @@ def import_image(img):
     return torch.cuda.FloatTensor(np.transpose(color.rgb2lab(np.array(img)), (2, 0, 1)))
     
 img_transform = transforms.Compose([
-    # transforms.Resize(256),
+    #transforms.Resize(256),
     transforms.Lambda(import_image)
 ])
 
@@ -52,6 +52,7 @@ img_transform = transforms.Compose([
 # test_path ='C:\\Users\\hrebe\\Desktop\\Diplomovka\\data\\test_color'
 
 places_path = 'C:\\Users\\hrebe\\Desktop\\Diplomovka\\places'
+frames_path = 'C:\\Users\\hrebe\\source\\repos\\NewRepo\\Frames'
 
 class ImageDataset(Dataset):
   def __init__(self,img_folder,transform):
@@ -68,18 +69,20 @@ class ImageDataset(Dataset):
 
   def __len__(self):
     return len(self.image)
-# train_dataset = torchvision.datasets.ImageFolder(train_path, transform = img_transform)
-# test_dataset = torchvision.datasets.ImageFolder(test_path, transform = img_transform)
+
+frames = torchvision.datasets.ImageFolder(frames_path, transform = img_transform)
 
 dataset = torchvision.datasets.ImageFolder(places_path, transform = img_transform)
 n = len(dataset)  # total number of examples
-n_test = int(0.05 * n)  # take ~10% for test
-test_dataset = torch.utils.data.Subset(dataset, range(n_test))  # take first 10%
-train_dataset = torch.utils.data.Subset(dataset, range(n_test, int(0.3 * n)))  # take the rest   
+n_test = int(0.05 * n) 
+test_dataset = torch.utils.data.Subset(dataset, range(n_test))  
+train_dataset = torch.utils.data.Subset(dataset, range(n_test, int(0.3 * n)))    
 
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+
+frames_dataloader = DataLoader(frames, batch_size=batch_size, shuffle=False)
 
 class ColorNet(nn.Module):
     def __init__(self, d=128):
@@ -125,7 +128,6 @@ num_params = sum(p.numel() for p in cnet.parameters() if p.requires_grad)
 print('Number of parameters: %d' % (num_params))
 
 optimizer = torch.optim.Adam(params=cnet.parameters(), lr=learning_rate)
-print(cnet)
 
 
 # set to training mode
@@ -139,12 +141,12 @@ if checkpointing:
     epoch_check = checkpoint['epoch']
     loss = checkpoint['loss']
     if resume:
-        print('Continue training from epoch %d...' % (epoch_check+1))
+        print('Continue training from epoch %d...' % (epoch_check))
         for epoch in range(num_epochs):
             train_loss_avg.append(0)
             num_batches = 0
             t0 = time.time()
-            act_epoch = epoch+1+epoch_check+1
+            act_epoch = epoch+1+epoch_check
             print('Actual checkpoint epoch:', act_epoch, 'Epoch:', epoch+1 ,'/',num_epochs,':')
             for lab_batch, _ in train_dataloader:
         
@@ -172,7 +174,7 @@ if checkpointing:
             LOSS = train_loss_avg[-1]
             PATH2 = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_%d.pt" % (act_epoch)
             torch.save({
-                    'epoch': epoch,
+                    'epoch': act_epoch,
                     'model_state_dict': cnet.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': LOSS,
@@ -219,68 +221,100 @@ else:
 
 
 
-plt.ion()
+#plt.ion()
 
-fig = plt.figure(figsize=(15, 5))
-plt.plot(train_loss_avg)
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.savefig("C:\\Users\\hrebe\\Desktop\\Diplomovka\\plot_places.png")
-plt.show()
+#fig = plt.figure(figsize=(15, 5))
+#plt.plot(train_loss_avg)
+#plt.xlabel('Epochs')
+#plt.ylabel('Loss')
+#plt.savefig("C:\\Users\\hrebe\\Desktop\\Diplomovka\\plot_places.png")
 
 cnet.eval()
 
-test_loss_avg, num_batches = 0, 0
-for lab_batch, _ in test_dataloader:
+#test_loss_avg, num_batches = 0, 0
+#for lab_batch, _ in test_dataloader:
 
-    with torch.no_grad():
+#    with torch.no_grad():
 
-        lab_batch = lab_batch.to(device)
+#        lab_batch = lab_batch.to(device)
 
-        # apply the color net to the luminance component of the Lab images
-        # to get the color (ab) components
-        predicted_ab_batch = cnet(lab_batch[:, 0:1, :, :])
+#        # apply the color net to the luminance component of the Lab images
+#        # to get the color (ab) components
+#        predicted_ab_batch = cnet(lab_batch[:, 0:1, :, :])
 
-        # loss is the L2 error to the actual color (ab) components
-        loss = F.mse_loss(predicted_ab_batch, lab_batch[:, 1:3, :, :])
+#        # loss is the L2 error to the actual color (ab) components
+#        loss = F.mse_loss(predicted_ab_batch, lab_batch[:, 1:3, :, :])
 
-        test_loss_avg += loss.item()
-        num_batches += 1
+#        test_loss_avg += loss.item()
+#        num_batches += 1
     
-test_loss_avg /= num_batches
-print('average loss: %f' % (test_loss_avg))
+#test_loss_avg /= num_batches
+#print('average loss: %f' % (test_loss_avg))
 
-plt.ion()
+#plt.ion()
 
+j = 0
+start = 0
+stop = batch_size
+if (len(frames) % batch_size != 0):
+    iter = (len(frames) // batch_size)+1
+else:
+    iter = (len(frames) // batch_size)
+
+last_batch = len(frames) % batch_size
+count = 0
+zeros = "00000"
+
+print("Total frames to be colorized: %d" % (len(frames)))
 
 with torch.no_grad():
+    
+    while j < iter:
+        print("coloring iteration %d/%d" % (j+1, iter))
+        if(j != 0 and j != iter-1):
+            start += batch_size
+            stop += batch_size
+        elif(j == iter-1):
+            start += batch_size
+            stop += last_batch
+        print("Start frame: %d  |  Stop frame: %d" % (start, stop))
+        # pick a random subset of images from the test set
+        #image_inds = np.random.choice(len(test_dataset), 25, replace=False)
+        lab_batch = torch.stack([frames[i][0] for i in range(start, stop)])
+        lab_batch = lab_batch.to(device)
 
-    # pick a random subset of images from the test set
-    image_inds = np.random.choice(len(test_dataset), 25, replace=False)
-    lab_batch = torch.stack([test_dataset[i][0] for i in image_inds])
-    lab_batch = lab_batch.to(device)
+        # predict colors (ab channels)
+        predicted_ab_batch = cnet(lab_batch[:, 0:1, :, :])
+        predicted_lab_batch = torch.cat([lab_batch[:, 0:1, :, :], predicted_ab_batch], dim=1)
 
-    # predict colors (ab channels)
-    predicted_ab_batch = cnet(lab_batch[:, 0:1, :, :])
-    predicted_lab_batch = torch.cat([lab_batch[:, 0:1, :, :], predicted_ab_batch], dim=1)
+        lab_batch = lab_batch.cpu()
+        predicted_lab_batch = predicted_lab_batch.cpu()
 
-    lab_batch = lab_batch.cpu()
-    predicted_lab_batch = predicted_lab_batch.cpu()
-
-    # convert to rgb
-    rgb_batch = []
-    predicted_rgb_batch = []
-    for i in range(lab_batch.size(0)):
-        rgb_img = color.lab2rgb(np.transpose(lab_batch[i, :, :, :].numpy().astype('float64'), (1, 2, 0)))
-        rgb_batch.append(torch.FloatTensor(np.transpose(rgb_img, (2, 0, 1))))
-        predicted_rgb_img = color.lab2rgb(np.transpose(predicted_lab_batch[i, :, :, :].numpy().astype('float64'), (1, 2, 0)))
-        predicted_rgb_batch.append(torch.FloatTensor(np.transpose(predicted_rgb_img, (2, 0, 1))))
+        # convert to rgb
+        rgb_batch = []
+        predicted_rgb_batch = []
+        for i in range(lab_batch.size(0)):
+            rgb_img = color.lab2rgb(np.transpose(lab_batch[i, :, :, :].numpy().astype('float64'), (1, 2, 0)))
+            rgb_batch.append(torch.FloatTensor(np.transpose(rgb_img, (2, 0, 1))))
+            predicted_rgb_img = color.lab2rgb(np.transpose(predicted_lab_batch[i, :, :, :].numpy().astype('float64'), (1, 2, 0)))
+            predicted_rgb_batch = torch.FloatTensor(np.transpose(predicted_rgb_img, (2, 0, 1)))
+            torchvision.utils.save_image(predicted_rgb_batch, "C:\\Users\\hrebe\\source\\repos\\NewRepo\\Col_Frames\\%s%d.jpg" % (zeros,i+(j*batch_size)))
+            count += 1
+            if (count // 10 != 0):
+                zeros = "0000"
+            if (count // 100 != 0):
+                zeros = "000"
+            if (count // 1000 != 0):
+                zeros = "00"
+            if (count // 10000 != 0):
+                zeros = "0"
+        j += 1
+    
 
     # plot images
-    fig, ax = plt.subplots(figsize=(45,45), nrows=1, ncols=2)
-    ax[0].imshow(np.transpose(torchvision.utils.make_grid(torch.stack(predicted_rgb_batch), nrow=5).numpy(), (1, 2, 0)))
-    ax[0].title.set_text('re-colored')
-    ax[1].imshow(np.transpose(torchvision.utils.make_grid(torch.stack(rgb_batch), nrow=5).numpy(), (1, 2, 0)))
-    ax[1].title.set_text('original')
-    plt.savefig("C:\\Users\\hrebe\\Desktop\\Diplomovka\\pls_places.png")
-    plt.show()
+    #fig, ax = plt.subplots(figsize=(45,45), nrows=1, ncols=2)
+    #ax[0].imshow(np.transpose(torchvision.utils.make_grid(torch.stack(predicted_rgb_batch), nrow=5).numpy(), (1, 2, 0)))
+    #ax[0].title.set_text('re-colored')
+    #ax[1].imshow(np.transpose(torchvision.utils.make_grid(torch.stack(rgb_batch), nrow=5).numpy(), (1, 2, 0)))
+    #ax[1].title.set_text('original')
+    #plt.savefig("C:\\Users\\hrebe\\Desktop\\Diplomovka\\pls_places.png")
