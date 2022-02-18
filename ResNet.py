@@ -21,9 +21,9 @@ num_epochs = 30
 batch_size = 32
 learning_rate = 1e-3
 use_gpu = True
-checkpointing = False
-resume = False
-PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\places_model_100.pt" #171 last
+checkpointing = True
+resume = True
+PATH = "C:\\Users\\hrebe\\Desktop\\Diplomovka\\resnet\\resnet_places_model_32.pt" 
 
 import numpy as np
 import cv2
